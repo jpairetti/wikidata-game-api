@@ -33,8 +33,8 @@ def listar_usuarios():
     Returns:
         Response: JSON con la lista de usuarios (cada uno con id y nombre).
         Código 200.
-    """
-    return jsonify({"error": "No implementado"}), 501
+    """        
+    return jsonify(USUARIOS), 200
 
 
 def obtener_usuario(usuario_id: int):
@@ -47,7 +47,11 @@ def obtener_usuario(usuario_id: int):
         Response: JSON del usuario (id, nombre) si existe; 200.
         Si no existe: JSON con error y código 404.
     """
-    return jsonify({"error": "No implementado"}), 501
+    for usuario in USUARIOS:
+        if usuario["id"] == usuario_id:
+            return jsonify(usuario), 200
+    
+    return jsonify({"error": "user not found"}), 404
 
 
 def crear_usuario():
@@ -86,7 +90,18 @@ def actualizar_usuario(usuario_id: int):
     Returns:
         Response: JSON del usuario actualizado y 200; 404 si no existe, 400 si body inválido.
     """
-    return jsonify({"error": "No implementado"}), 501
+    if not request.json or "nombre" not in request.json:
+        return jsonify({"error": "request inválido"}), 400
+    
+    nuevo_nombre = request.json["nombre"]
+
+    for usuario in USUARIOS:
+        if usuario["id"] == usuario_id:
+            usuario["nombre"] = nuevo_nombre
+            _persist_usuarios()
+            return jsonify(usuario), 200
+    return jsonify({"error": "user not found"}), 404
+
 
 
 def eliminar_usuario(usuario_id: int):
@@ -98,4 +113,11 @@ def eliminar_usuario(usuario_id: int):
     Returns:
         Response: JSON con mensaje de éxito y 200; 404 si el usuario no existe.
     """
-    return jsonify({"error": "No implementado"}), 501
+    for usuario in USUARIOS:
+        if usuario["id"] == usuario_id:
+            USUARIOS.remove(usuario)
+            
+            LISTAS_JUEGOS[usuario["id"]] = []
+            return jsonify({"mensaje": "usuario eliminado"}), 200
+
+    return jsonify({"error": "user not found"}), 404
