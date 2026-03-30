@@ -89,7 +89,26 @@ def listar_juegos_usuario(usuario_id: int):
         Response: JSON con lista de juegos (cada uno con id, nombre, flags, etc.) y 200;
         404 si el usuario no existe.
     """
-    return jsonify({"error": "No implementado"}), 501
+    lista = _lista_usuario(usuario_id)
+    if lista is None:
+        return jsonify({"error": "usuario no existe"}), 404
+    juegos_enriquecidos = []
+    for item in lista:
+        enriquecido = _enriquecer_item(item)
+        if enriquecido is not None:
+            juegos_enriquecidos.append(enriquecido)
+    genero = request.args.get("genero")
+    ordenar = request.args.get("ordenar", "nombre")
+    orden = request.args.get("orden", "asc")
+    ordenes_validos = filtros.ORDEN_VALIDOS_LISTA
+    juegos_ordenados_y_filtrados = filtros.filtrar_y_ordenar(
+        juegos_enriquecidos,
+        genero=genero,
+        ordenar=ordenar,
+        orden=orden,
+        ordenes_validos=ordenes_validos,
+    )
+    return jsonify(juegos_ordenados_y_filtrados), 200
 
 
 def _validar_body_agregar_juego():
