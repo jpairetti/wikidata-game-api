@@ -171,7 +171,20 @@ def actualizar_juego_usuario(usuario_id: int, juego_id: str):
     Returns:
         Response: JSON del ítem actualizado y 200; 404 si usuario o juego en lista no existe.
     """
-    return jsonify({"error": "No implementado"}), 501
+    lista, item = _lista_y_existente(usuario_id, juego_id)
+    if lista is None:
+        return jsonify({"error": "usuario no existe"}), 404
+    if item is None:
+        return jsonify({"error": "el juego no existe en la lista del usuario"}), 404
+    if not request.json:
+        return jsonify({"error": "Datos inválidos"}), 400
+    req = request.json
+    for key in ("tengo", "quiero", "jugado", "me_gusta"):
+        if key in req:
+            item[key] = bool(req[key])
+    _persist_listas()
+    item_enriquecido = _enriquecer_item(item)
+    return jsonify(item_enriquecido), 200
 
 
 def eliminar_juego_usuario(usuario_id: int, juego_id: str):
@@ -184,4 +197,11 @@ def eliminar_juego_usuario(usuario_id: int, juego_id: str):
     Returns:
         Response: JSON con mensaje de éxito y 200; 404 si usuario o juego en lista no existe.
     """
-    return jsonify({"error": "No implementado"}), 501
+    lista, item = _lista_y_existente(usuario_id, juego_id)
+    if lista is None:
+        return jsonify({"error": "usuario no existe"}), 404
+    if item is None:
+        return jsonify({"error": "el juego no existe en la lista del usuario"}), 404
+    lista.remove(item)
+    _persist_listas()
+    return jsonify({"mensaje": "Juego eliminado de la lista del usuario"}), 200
