@@ -44,7 +44,9 @@ def _lista_usuario(usuario_id: int):
         Lista de ítems (dict con juego_id, tengo, quiero, jugado, me_gusta, fecha_agregado)
         o None si el usuario no existe.
     """
-    return None
+    if next((u for u in USUARIOS if u["id"] == usuario_id), None) is None:
+        return None
+    return LISTAS_JUEGOS.setdefault(usuario_id, [])
 
 
 def _enriquecer_item(item: dict) -> dict | None:
