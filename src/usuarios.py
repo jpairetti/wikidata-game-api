@@ -115,9 +115,10 @@ def eliminar_usuario(usuario_id: int):
     """
     for usuario in USUARIOS:
         if usuario["id"] == usuario_id:
+            del LISTAS_JUEGOS[usuario_id]
             USUARIOS.remove(usuario)
-            
-            LISTAS_JUEGOS[usuario["id"]] = []
+            _persist_usuarios()
+            _persist_listas()
             return jsonify({"mensaje": "usuario eliminado"}), 200
 
     return jsonify({"error": "user not found"}), 404
