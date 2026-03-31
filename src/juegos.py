@@ -156,7 +156,52 @@ def agregar_juego_usuario(usuario_id: int):
         Response: JSON del ítem creado (enriquecido) y 201; 400 si falta campo, 404 si usuario
         o juego no existe, 409 si el juego ya está en la lista.
     """
-    return jsonify({"error": "No implementado"}), 501
+    if not request.json:
+        return jsonify({"error": "Datos inválidos: falta request"}), 400
+    if "juego_id" not in request.json:
+        return jsonify({"error": "Datos inválidos: falta juego"}), 400
+    
+    for key in ("tengo", "quiero", "jugado", "me_gusta"):
+        if key not in request.json:
+            return jsonify({"error": f"Datos inválidos: falta {key}"}), 400
+    
+    if juego_id not in CATALOGO_JUEGOS:
+        return jsonify({"error": "Datos inválidos: juego no encontrado"}), 404
+
+    # obligatorios
+    juego_id = request.json.get("juego_id")
+    req_tengo = request.json.get("tengo")
+    req_quiero = request.json.get("quiero")
+    req_jugado = request.json.get("jugado")
+    req_me_gusta = request.json.get("me_gusta")
+    req_descripcion = request.json.get("descripcion")
+
+    # opcionales
+    req_genero = request.json.get("genero")
+    req_lanzamiento = request.json.get("lanzamiento")
+    req_plataforma = request.json.get("plataforma")
+            
+    if "juego_id" not in CATALOGO_JUEGOS:
+        return jsonify({"error": "Datos inválidos: juego no encontrado"}), 404
+
+    for usuario in USUARIOS:
+        if usuario["id"] == usuario_id:
+            item = {
+                "id":juego_id,
+                "genero": req_genero,
+                "lanzamiento": req_lanzamiento,
+                "plataforma": req_plataforma,
+                "descripcion": req_descripcion,
+                "tengo": req_tengo,
+                "quiero": req_quiero,
+                "jugado": req_jugado,
+                "me_gusta": req_me_gusta,
+                "fecha_agregado": datetime.now().isoformat()
+            }
+            LISTAS_JUEGOS[usuario_id].append(item)
+            _persist_listas()
+            return jsonify(item), 201
+    return jsonify({"error": "user no encontrado"}), 404
 
 
 def actualizar_juego_usuario(usuario_id: int, juego_id: str):
