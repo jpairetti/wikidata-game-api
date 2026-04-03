@@ -59,7 +59,17 @@ def _request(params: dict) -> dict | None:
     Returns:
         Dict con la respuesta JSON; None si hay error de red, timeout o JSON inválido.
     """
-    return None
+
+    headers = {"User-Agent": _get_user_agent()}
+    params["format"] = "json"
+    
+    try:
+        resp = requests.get(WIKIDATA_BASE, params = params, headers = headers, timeout = WIKIDATA_TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()
+    
+    except(requests.RequestException, ValueError):
+        return None
 
 
 def _extraer_fecha(time_value: str) -> str:
@@ -88,7 +98,36 @@ def _obtener_labels(qids: list[str]) -> dict[str, str]:
     Returns:
         Dict qid -> valor del label (string).
     """
-    return {}
+
+    if not qids:
+        return {}
+    
+    data = _request({
+        "action": "wbgetentities",
+        "ids": "|".join(qids),
+        "props": "labels",
+        "languages": LANG
+    })
+
+    if data is None:
+        return None
+    
+    entities = data.get("entities", {})
+
+    labels = {}
+    for qid, ent in entities.items():
+        labels = ent.get("labels", {})
+
+        if LANG in labels:
+            valor = labels[LANG]["value"]
+        elif "en" in labels:
+            valor = labels["en"]["value"]
+        else:
+            valor = ""
+
+        labels[qid] = valor
+
+    return labels
 
 
 def _claim_value_id(claims: dict, prop: str) -> str:
@@ -172,6 +211,21 @@ def _es_videojuego(ent: dict) -> bool:
     Returns:
         True si es videojuego, False si no.
     """
+    # usa wbgetentities, busca en el campo claims de la entidad
+
+    claims = ent.get("claims", {})
+    
+    if P_INSTANCE_OF not in claims:
+        return False
+    
+    # revisa que el id sea VIDEO_GAME_QID
+    for clm in claims[P_INSTANCE_OF]:
+        v = clm.get("mainsnak", {}).get("datavalue", {})
+        value = v.get("value", {})
+
+        if value["id"] == VIDEO_GAME_QID:
+            return True
+
     return False
 
 
@@ -184,7 +238,22 @@ def _buscar_ids_wikidata(q: str) -> list[str] | None:
     Returns:
         Lista de Q-ids encontrados; None si falla la API; [] si sin resultados.
     """
-    return []
+    # usa wbsearchentities
+    data = _request({
+        "action": "wbsearchentities",
+        "search": q,
+        "language": LANG,
+    })
+
+    if data is None:
+        return None
+
+    # guarda ids del campo search en una lista 
+    ids = []
+    for item in data.get("search", []):
+        ids.append(item["id"])
+    return ids
+
 
 
 def _filtrar_ids_videojuegos(ids: list[str]) -> list[str] | None:
@@ -196,7 +265,28 @@ def _filtrar_ids_videojuegos(ids: list[str]) -> list[str] | None:
     Returns:
         Lista de ids que son videojuegos; None si falla la API; [] si ninguno.
     """
-    return []
+    if not ids:
+        return []
+    
+    # pide las entidades de la lista de ids (concatenadas de la forma q1|q2|q3|...|qn)
+    data = _request({
+        "action": "wbgetentities",
+        "ids": "|".join(ids),
+        "props": "claims",
+    })
+
+    if data is None:
+        return None
+
+    # guarda solo el campo entities 
+    entities = data.get("entities", {})
+
+    lista_videojuegos = []
+    for qid, ent in entities.items():
+        if _es_videojuego(ent):
+            lista_videojuegos.append(qid)
+    return lista_videojuegos
+
 
 
 def _entidades_completas_videojuegos(video_game_ids: list[str]) -> dict | None:
@@ -208,7 +298,19 @@ def _entidades_completas_videojuegos(video_game_ids: list[str]) -> dict | None:
     Returns:
         Dict qid -> entidad; None si falla la API; {} si la lista está vacía.
     """
-    return {}
+    if not video_game_ids:
+        return {}
+    
+    data = _request({
+        "action": "wbgetentities",
+        "ids": "|".join(video_game_ids),
+        "props": "labels|descriptions|claims",
+    })
+
+    if data is None:
+        return None
+    
+    return data.get("entities", {})
 
 
 def _colectar_ref_qids(entities: dict) -> set:
@@ -268,7 +370,24 @@ def buscar(q: str) -> list[dict] | None:
         Lista de juegos (dict con id, nombre, genero, etc.); None si falla la API;
         [] si no hay resultados o ninguno es videojuego.
     """
-    return []
+    ids = _buscar_ids_wikidata(q)
+    if ids is None:
+        return None
+    
+    vjuegos = _filtrar_ids_videojuegos(ids)
+    if vjuegos is None:
+        return []
+
+    entities = _entidades_completas_videojuegos(vjuegos)
+    if entities is None:
+        return None
+
+
+    ref = _colectar_ref_qids(entities)
+    labels = _obtener_labels(list(ref))
+
+    return _mapear_y_guardar_resultados(vjuegos, entities, labels)
+
 
 
 def obtener_juego(juego_id: str) -> dict | None:
@@ -281,8 +400,29 @@ def obtener_juego(juego_id: str) -> dict | None:
         Dict del juego (id, nombre, genero, lanzamiento, plataforma, descripcion);
         None si no existe o falla la API.
     """
-    return None
+    if juego_id in CATALOGO_JUEGOS:
+        return CATALOGO_JUEGOS[juego_id]
+    
+    entities = _entidades_completas_videojuegos([juego_id])
 
+    if entities is None:
+        return None
+    
+    ent = entities.get(juego_id)
+    if not ent: 
+        return None
+    
+    if not _es_videojuego(ent):
+        return None
+    
+    ref = _colectar_ref_qids(entities)
+    labels = _obtener_labels(list(ref))
+    if labels is None:
+        return None
+
+    resultados = _mapear_y_guardar_resultados([juego_id], entities, labels)
+    return resultados
+    
 
 def _obtener_lista_juegos_para_get() -> tuple[list[dict] | None, tuple | None]:
     """Resuelve la lista de juegos para GET /juegos según query params q y fuente.
@@ -304,6 +444,7 @@ def _obtener_lista_juegos_para_get() -> tuple[list[dict] | None, tuple | None]:
         return list(resultados or []), None
     q_lower = q.lower()
     return [j for j in CATALOGO_JUEGOS.values() if q_lower in (j.get("nombre") or "").lower()], None
+
 
 
 def listar_o_buscar_juegos():
