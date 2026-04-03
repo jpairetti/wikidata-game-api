@@ -1,7 +1,7 @@
 """Sugerencia de un juego al azar desde la lista del usuario (opcional por género).
 
 Qué es este módulo:
-    Implementa el endpoint GET /usuarios/<id>/sugerencia que devuelve un juego
+    Implementa el endpoint GET /usuarios/<id>/sugerir que devuelve un juego
     elegido al azar entre los que el usuario tiene (tengo=true), opcionalmente
     filtrado por género.
 
@@ -52,12 +52,11 @@ def _filtrar_candidatos_por_genero(candidatos: list[dict], genero: str | None) -
     Returns:
         Lista de ítems cuyo juego tiene ese género en el catálogo.
     """
-    genero_normalizado = (genero or "").strip().lower()
-    if not genero_normalizado:
+    if not genero:
         return candidatos
     return [
         i for i in candidatos
-        if str(CATALOGO_JUEGOS.get(i["juego_id"], {}).get("genero", "")).strip().lower() == genero_normalizado
+        if CATALOGO_JUEGOS.get(i["juego_id"], {}).get("genero") == genero
     ]
 
 
@@ -89,26 +88,4 @@ def sugerir_juego(usuario_id: int):
         Response: JSON con id, nombre, descripcion, genero, lanzamiento, plataforma y 200;
         404 si el usuario no existe o no hay juegos que cumplan el criterio.
     """
-    genero = request.args.get("genero")
-    candidatos = _candidatos_sugerencia(usuario_id, genero)
-    if candidatos is None:
-        return jsonify({"error": "Usuario no encontrado"}), 404
-    if not candidatos:
-        return jsonify({"error": "No hay juegos para sugerir con ese criterio"}), 404
-    # Evita 404 aleatorios si hay items de lista que no existen en el catalogo.
-    candidatos = [i for i in candidatos if CATALOGO_JUEGOS.get(i["juego_id"]) is not None]
-    if not candidatos:
-        return jsonify({"error": "No hay juegos para sugerir con ese criterio"}), 404
-    juego_sugerido = random.choice(candidatos)
-    info = CATALOGO_JUEGOS.get(juego_sugerido["juego_id"])
-    if info is None:
-        return jsonify({"error": "No hay juegos para sugerir con ese criterio"}), 404
-    juego_info = {
-        "id": juego_sugerido["juego_id"],
-        "nombre": info.get("nombre"),
-        "descripcion": info.get("descripcion"),
-        "genero": info.get("genero"),
-        "lanzamiento": info.get("lanzamiento"),
-        "plataforma": info.get("plataforma") 
-    }
-    return jsonify(juego_info), 200
+    return jsonify({"error": "No implementado"}), 501
