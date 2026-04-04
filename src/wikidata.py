@@ -128,6 +128,39 @@ def _obtener_labels(qids: list[str]) -> dict[str, str]:
         labels[qid] = valor
 
     return labels
+    if not qids:
+        return {}
+    
+    data = _request({
+        "action": "wbgetentities",
+        "ids": "|".join(qids),
+        "props": "labels",
+        "languages": LANG  # Wikidata prefiere el plural aquí
+    })
+
+    if data is None:
+        return {} # Mejor devolver vacío que None para no romper el resto
+
+    entidades = data.get("entities", {})
+    resultados = {}
+
+    # Empezamos la limpieza
+    for qid, info in entidades.items():
+        # Por defecto, si no hay nombre, que al menos nos deje el QID
+        nombre_final = qid 
+        
+        labels = info.get("labels", {})
+        
+        # 1. Intentamos en español
+        if LANG in labels:
+            nombre_final = labels[LANG].get("value", qid)
+        # 2. Si no hay, intentamos en inglés
+        elif "en" in labels:
+            nombre_final = labels["en"].get("value", qid)
+            
+        resultados[qid] = nombre_final
+
+    return resultados
 
 
 def _claim_value_id(claims: dict, prop: str) -> str:
@@ -459,7 +492,21 @@ def listar_o_buscar_juegos():
     Returns:
         Response: JSON con lista de juegos y 200; 502 si fuente=wikidata y falla la API.
     """
-    return jsonify([])
+    # devuelve la lista de juegos exxtraidas localmente o de wikidata 
+    lista, error = _obtener_lista_juegos_para_get()
+    
+    if error:
+        return error
+
+    # filtro la lista por genero. Ordeno asc
+    resultado_final = filtros.filtrar_y_ordenar(
+        lista,
+        genero=request.args.get("genero"),
+        ordenar=request.args.get("ordenar"),
+        orden = request.args.get("orden", "asc")
+    )
+    
+    return jsonify(resultado_final), 200
 
 
 def obtener_juego_endpoint(juego_id: str):
@@ -471,4 +518,9 @@ def obtener_juego_endpoint(juego_id: str):
     Returns:
         Response: JSON del juego y 200; 404 si no encontrado o falla la API.
     """
-    return jsonify({"error": "No implementado"}), 501
+    
+    juego = obtener_juego(juego_id)
+    if juego is None:
+        return jsonify({"error": "juego no encontrado"}), 404
+
+    return jsonify(juego), 200
