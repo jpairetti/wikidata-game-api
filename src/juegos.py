@@ -145,82 +145,91 @@ def _lista_y_existente(usuario_id: int, juego_id: str) -> tuple[list[dict] | Non
 
 
 def agregar_juego_usuario(usuario_id: int):
-    """Agrega un juego a la lista del usuario. El juego debe existir en catálogo o Wikidata.
+    """
+    Agrega un juego a la lista del usuario. El juego debe existir en catálogo o
+    Wikidata.
 
-    Request body (JSON): juego_id (str), tengo, quiero, jugado, me_gusta (bool).
+    Request body (JSON): juego_id (str), tengo, quiero, jugado, me_gusta (bool)
 
     Args:
         usuario_id: Id del usuario.
 
     Returns:
-        Response: JSON del ítem creado (enriquecido) y 201; 400 si falta campo, 404 si usuario
-        o juego no existe, 409 si el juego ya está en la lista.
+        Response:
+            -JSON del ítem creado (enriquecido) y 201
+            -400 si falta campo
+            -404 si usuario o juego no existe
+            -409 si el juego ya está en la lista.
     """
-    if not request.json:
-        return jsonify({"error": "Datos inválidos: falta request"}), 400
-    if "juego_id" not in request.json:
-        return jsonify({"error": "Datos inválidos: falta juego"}), 400
-    
-    for key in ("tengo", "quiero", "jugado", "me_gusta"):
-        if key not in request.json:
-            return jsonify({"error": f"Datos inválidos: falta {key}"}), 400
-    
-    if juego_id not in CATALOGO_JUEGOS:
-        return jsonify({"error": "Datos inválidos: juego no encontrado"}), 404
+    # respecto a la validez de campos (400):
+    error_body, valid_data = _validar_body_agregar_juego()
+    if error_body:
+        return error_body
 
-    # obligatorios
-    juego_id = request.json.get("juego_id")
-    req_tengo = request.json.get("tengo")
-    req_quiero = request.json.get("quiero")
-    req_jugado = request.json.get("jugado")
-    req_me_gusta = request.json.get("me_gusta")
-    req_descripcion = request.json.get("descripcion")
+    # si llego hasta aca => valid_data = {juego_id, req}
+    j_id, data = valid_data
 
-    # opcionales
-    req_genero = request.json.get("genero")
-    req_lanzamiento = request.json.get("lanzamiento")
-    req_plataforma = request.json.get("plataforma")
-            
-    if "juego_id" not in CATALOGO_JUEGOS:
-        return jsonify({"error": "Datos inválidos: juego no encontrado"}), 404
+    # respecto a si es un usuario valido:
+    lista = _lista_usuario(usuario_id)
+    if lista is None:
+        return jsonify({"error": "Usuario no registrado"}), 404
 
-    for usuario in USUARIOS:
-        if usuario["id"] == usuario_id:
-            item = {
-                "id":juego_id,
-                "genero": req_genero,
-                "lanzamiento": req_lanzamiento,
-                "plataforma": req_plataforma,
-                "descripcion": req_descripcion,
-                "tengo": req_tengo,
-                "quiero": req_quiero,
-                "jugado": req_jugado,
-                "me_gusta": req_me_gusta,
-                "fecha_agregado": datetime.now().isoformat()
-            }
-            LISTAS_JUEGOS[usuario_id].append(item)
-            _persist_listas()
-            return jsonify(item), 201
-    return jsonify({"error": "user no encontrado"}), 404
+    # respecto a si un juego ingresado existe (localmente o en internet)
+    info_juego = obtener_juego(j_id)
+    if not info_juego:
+        return jsonify({"error": "El juego no existe"}), 404
+
+    # respecto a si un juego ingresado ya existe en la lista de usuario
+    _, existente = _lista_y_existente(usuario_id, j_id)
+    if existente:
+        return jsonify(
+            {"error": "El juego ya está en la lista de usuario"}), 409
+
+    # luego de chequeo proseguimos a agregar el juego a la lista en ram y en
+    # disco
+    nuevo_item = {
+        "id": j_id,
+        "juego_id": j_id,
+        "nombre": info_juego.get("nombre"),
+        "tengo": data.get("tengo", False),
+        "quiero": data.get("quiero", False),
+        "jugado": data.get("jugado", False),
+        "me_gusta": data.get("me_gusta", False),
+        "fecha_agregado": datetime.now().isoformat()
+    }
+
+    lista.append(nuevo_item)
+    _persist_listas()
+
+    return jsonify(nuevo_item), 201
 
 
 def actualizar_juego_usuario(usuario_id: int, juego_id: str):
-    """Actualiza los flags (tengo, quiero, jugado, me_gusta) de un ítem de la lista.
+    """
+    Actualiza los flags (tengo, quiero, jugado, me_gusta)
+    de un ítem de la lista.
 
     Args:
         usuario_id: Id del usuario.
         juego_id: Q-id del juego en la lista.
 
-    Request body (JSON): campos opcionales tengo, quiero, jugado, me_gusta (bool).
+    Request body (JSON): campos opcionales
+        tengo
+        quiero
+        jugado
+        me_gusta (bool).
 
     Returns:
-        Response: JSON del ítem actualizado y 200; 404 si usuario o juego en lista no existe.
+        Response:
+            -JSON del ítem actualizado y 200
+            -404 si usuario o juego en lista no existe.
     """
     lista, item = _lista_y_existente(usuario_id, juego_id)
     if lista is None:
         return jsonify({"error": "usuario no existe"}), 404
     if item is None:
-        return jsonify({"error": "el juego no existe en la lista del usuario"}), 404
+        return jsonify(
+            {"error": "el juego no existe en la lista del usuario"}), 404
     if not request.json:
         return jsonify({"error": "Datos inválidos"}), 400
     req = request.json
