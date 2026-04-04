@@ -384,10 +384,9 @@ def buscar(q: str) -> list[dict] | None:
 
 
     ref = _colectar_ref_qids(entities)
-    labels = _obtener_labels(list(ref))
+    labels = _obtener_labels(list[str](ref))
 
     return _mapear_y_guardar_resultados(vjuegos, entities, labels)
-
 
 
 def obtener_juego(juego_id: str) -> dict | None:
@@ -421,7 +420,12 @@ def obtener_juego(juego_id: str) -> dict | None:
         return None
 
     resultados = _mapear_y_guardar_resultados([juego_id], entities, labels)
-    return resultados
+    
+    # En lugar de 'return resultados', hacemos esto:
+    if resultados and len(resultados) > 0:
+        return resultados[0]  # Retorna el DICCIONARIO del juego
+        
+    return None
     
 
 def _obtener_lista_juegos_para_get() -> tuple[list[dict] | None, tuple | None]:
