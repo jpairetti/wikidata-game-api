@@ -114,7 +114,7 @@ def _obtener_labels(qids: list[str]) -> dict[str, str]:
     
     entities = data.get("entities", {})
 
-    labels = {}
+    resultado = {}
     for qid, ent in entities.items():
         labels = ent.get("labels", {})
 
@@ -125,9 +125,9 @@ def _obtener_labels(qids: list[str]) -> dict[str, str]:
         else:
             valor = ""
 
-        labels[qid] = valor
+        resultado[qid] = valor
 
-    return labels
+    return resultado
     
 
 def _claim_value_id(claims: dict, prop: str) -> str:
@@ -384,8 +384,8 @@ def buscar(q: str) -> list[dict] | None:
 
 
     ref = _colectar_ref_qids(entities)
-    labels = _obtener_labels(list[str](ref))
-
+    labels = _obtener_labels(list(ref))
+    
     return _mapear_y_guardar_resultados(vjuegos, entities, labels)
 
 
@@ -464,6 +464,8 @@ def listar_o_buscar_juegos():
     
     if error:
         return error
+
+    lista = [j for j in lista if isinstance(j, dict) and "id" in j]
 
     # filtro la lista por genero. Ordeno asc
     resultado_final = filtros.filtrar_y_ordenar(
