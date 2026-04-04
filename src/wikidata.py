@@ -128,40 +128,7 @@ def _obtener_labels(qids: list[str]) -> dict[str, str]:
         labels[qid] = valor
 
     return labels
-    if not qids:
-        return {}
     
-    data = _request({
-        "action": "wbgetentities",
-        "ids": "|".join(qids),
-        "props": "labels",
-        "languages": LANG  # Wikidata prefiere el plural aquí
-    })
-
-    if data is None:
-        return {} # Mejor devolver vacío que None para no romper el resto
-
-    entidades = data.get("entities", {})
-    resultados = {}
-
-    # Empezamos la limpieza
-    for qid, info in entidades.items():
-        # Por defecto, si no hay nombre, que al menos nos deje el QID
-        nombre_final = qid 
-        
-        labels = info.get("labels", {})
-        
-        # 1. Intentamos en español
-        if LANG in labels:
-            nombre_final = labels[LANG].get("value", qid)
-        # 2. Si no hay, intentamos en inglés
-        elif "en" in labels:
-            nombre_final = labels["en"].get("value", qid)
-            
-        resultados[qid] = nombre_final
-
-    return resultados
-
 
 def _claim_value_id(claims: dict, prop: str) -> str:
     """Extrae el id (Q-id) del primer claim de una propiedad.
