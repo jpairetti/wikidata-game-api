@@ -177,5 +177,9 @@ Durante el laboratorio realizamos una entrega parcial, compuesta por:
 [**Actividades parte 1**](./informes/parte1.md)
 
 [**Pruebas de uso**](./informes/entrega_parcial.md)
+
+## Video de presentacion
+
+[**Video de presentacion**](https://drive.google.com/drive/folders/1NpRfQvw7OqN-7jCkP0o9oU_qv0y3EfL0?usp=sharing)
 ##
 *Famaf - Redes y Sistemas Distribuidos 2026 - Grupo 31 - Integrantes: Lissandro Bosque, Franco Galassi, Joaquin Pairetti*
