@@ -1,7 +1,10 @@
 openapi: 3.0.3
 info:
   title: API Recomendador de Videojuegos
-  description: Laboratorio 2026 - Redes y Sistemas Distribuidos. API para gestionar usuarios, listas de juegos (tengo/quiero/jugado/me_gusta) e integración con Wikidata.
+  description: >
+    Laboratorio 2026 - Redes y Sistemas Distribuidos. API para gestionar usuarios, listas de juegos
+    (tengo/quiero/jugado/me_gusta) e integración con Wikidata. En /docs (Swagger), usá **Authorize**
+    y el esquema TokenAuth: pegá el header completo `Token <valor>` obtenido con POST /auth/login.
   version: 2.0.0
 
 servers:
@@ -85,6 +88,8 @@ paths:
       summary: Actualizar usuario
       description: "Actualiza datos de un usuario. Requiere un token válido en Authorization: Token <TOKEN> que pertenezca a ese usuario."
       operationId: actualizar_usuario
+      security:
+        - TokenAuth: []
       parameters:
         - name: usuario_id
           in: path
@@ -110,10 +115,18 @@ paths:
           description: Datos inválidos
         '404':
           description: Usuario no encontrado
+        '401':
+          description: No autorizado (token ausente, inválido, expirado o no pertenece a este usuario)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorJson'
     delete:
       summary: Eliminar usuario
       description: "Elimina un usuario y su lista de juegos asociada. Requiere un token válido en Authorization: Token <TOKEN> que pertenezca a ese usuario."
       operationId: eliminar_usuario
+      security:
+        - TokenAuth: []
       parameters:
         - name: usuario_id
           in: path
@@ -132,6 +145,12 @@ paths:
                     type: string
         '404':
           description: Usuario no encontrado
+        '401':
+          description: No autorizado (token ausente, inválido, expirado o no pertenece a este usuario)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorJson'
 
   /usuarios/{usuario_id}/juegos:
     get:
@@ -176,6 +195,8 @@ paths:
       summary: Agregar juego a la lista del usuario (por id de juego del catálogo)
       description: "Agrega un juego a la lista de un usuario. Requiere un token válido en Authorization: Token <TOKEN> que pertenezca a ese usuario."
       operationId: agregar_juego_usuario
+      security:
+        - TokenAuth: []
       parameters:
         - name: usuario_id
           in: path
@@ -203,12 +224,20 @@ paths:
           description: El juego ya está en la lista
         '502':
           description: Error al obtener juego (Wikidata no disponible)
+        '401':
+          description: No autorizado (token ausente, inválido, expirado o no pertenece a este usuario)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorJson'
 
   /usuarios/{usuario_id}/juegos/{juego_id}:
     put:
       summary: Actualizar ítem de juego en la lista
       description: "Actualiza flags del juego en la lista del usuario. Requiere un token válido en Authorization: Token <TOKEN> que pertenezca a ese usuario."
       operationId: actualizar_juego_usuario
+      security:
+        - TokenAuth: []
       parameters:
         - name: usuario_id
           in: path
@@ -244,10 +273,18 @@ paths:
                 $ref: '#/components/schemas/ItemLista'
         '404':
           description: Usuario o juego no encontrado
+        '401':
+          description: No autorizado (token ausente, inválido, expirado o no pertenece a este usuario)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorJson'
     delete:
       summary: Eliminar juego de la lista del usuario
       description: "Elimina un juego de la lista del usuario. Requiere un token válido en Authorization: Token <TOKEN> que pertenezca a ese usuario."
       operationId: eliminar_juego_usuario
+      security:
+        - TokenAuth: []
       parameters:
         - name: usuario_id
           in: path
@@ -272,6 +309,12 @@ paths:
                     type: string
         '404':
           description: Usuario o juego no encontrado
+        '401':
+          description: No autorizado (token ausente, inválido, expirado o no pertenece a este usuario)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorJson'
 
   /usuarios/{usuario_id}/sugerencia:
     get:
@@ -376,7 +419,10 @@ paths:
   /auth/registro:
     post:
       summary: Registrar usuario (auth)
-      description: Registra un nuevo usuario con username, nombre y password. No devuelve ni almacena contraseñas en texto plano.
+      description: >
+        Contrato al completar la Parte 6: registra username, nombre y password; la contraseña
+        debe persistirse solo como hash seguro (no en texto plano). El kickstarter puede
+        incumplir esto hasta corregir src/auth.py. Respuesta 201 sin password ni password_hash.
       operationId: registrar_usuario_auth
       requestBody:
         required: true
@@ -418,6 +464,16 @@ paths:
           description: Credenciales inválidas
 
 components:
+  securitySchemes:
+    TokenAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: >
+        Valor completo del header: la palabra "Token", un espacio y el token opaco
+        devuelto por POST /auth/login. Ejemplo: Token a1b2c3d4e5f6789...
+        En Swagger UI usá Authorize y pegá esa cadena completa.
+
   schemas:
     Usuario:
       type: object
@@ -426,6 +482,13 @@ components:
         id:
           type: integer
         nombre:
+          type: string
+
+    ErrorJson:
+      type: object
+      description: Cuerpo JSON típico de error (p. ej. no autorizado).
+      properties:
+        error:
           type: string
 
     Juego:
