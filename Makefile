@@ -40,3 +40,4 @@ docker-grade:
 clean-db:
 	@rm -f $(DB_PATH)
 	@echo "Base de datos eliminada (si existía)."
+	@rm -f :memory:
