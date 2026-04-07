@@ -1,24 +1,18 @@
-"""Sugerencia de un juego al azar desde la lista del usuario (opcional por género).
-
+"""
+Sugerencia de un juego al azar desde la lista del usuario (opcional por género)
 Qué es este módulo:
-    Implementa el endpoint GET /usuarios/<id>/sugerir que devuelve un juego
-    elegido al azar entre los que el usuario tiene (tengo=true), opcionalmente
-    filtrado por género.
+Implementa el endpoint GET /usuarios/<id>/sugerir que devuelve un juego elegido
+al azar entre los que el usuario tiene (tengo=true), opcionalmentefiltrado por
+género.
 
-Para qué sirve:
-    Dar una recomendación aleatoria al usuario basada en lo que ya tiene,
-    útil para “¿qué juego juego hoy?” o para descubrir uno por género.
+Para qué sirve: Dar una recomendación aleatoria al usuario basada en lo que ya
+tiene, útil para “¿qué juego juego hoy?” o para descubrir uno por género.
 
 Qué hace:
-    - _candidatos_que_tengo: obtiene los ítems con tengo=true del usuario.
-    - _filtrar_candidatos_por_genero: filtra por género usando el catálogo.
-    - _candidatos_sugerencia: combina ambos; None si el usuario no existe.
-    - sugerir_juego: el endpoint; 404 si usuario no existe o no hay candidatos.
-
-Qué se espera que hagas:
-    En el kickstarter la lógica de sugerir_juego viene con stub. Implementá
-    usando las helpers _candidatos_sugerencia y el catálogo para enriquecer
-    el JSON de respuesta (id, nombre, descripcion, genero, lanzamiento, plataforma).
+- _candidatos_que_tengo: obtiene los ítems con tengo=true del usuario.
+- _filtrar_candidatos_por_genero: filtra por género usando el catálogo.
+- _candidatos_sugerencia: combina ambos; None si el usuario no existe.
+- sugerir_juego: el endpoint; 404 si usuario no existe o no hay candidatos.
 """
 
 import random
@@ -34,7 +28,8 @@ def _candidatos_que_tengo(usuario_id: int) -> list[dict] | None:
         usuario_id: Id del usuario.
 
     Returns:
-        Lista de ítems (dict con juego_id, flags, etc.); None si el usuario no existe.
+        Lista de ítems (dict con juego_id, flags, etc.); None si el usuario
+        no existe.
     """
     if next((x for x in USUARIOS if x["id"] == usuario_id), None) is None:
         return None
@@ -42,7 +37,9 @@ def _candidatos_que_tengo(usuario_id: int) -> list[dict] | None:
     return [i for i in lista if i.get("tengo")]
 
 
-def _filtrar_candidatos_por_genero(candidatos: list[dict], genero: str | None) -> list[dict]:
+def _filtrar_candidatos_por_genero(
+    candidatos: list[dict], genero: str | None
+) -> list[dict]:
     """Filtra la lista de candidatos por género según el catálogo.
 
     Args:
@@ -60,8 +57,10 @@ def _filtrar_candidatos_por_genero(candidatos: list[dict], genero: str | None) -
     ]
 
 
-def _candidatos_sugerencia(usuario_id: int, genero: str | None) -> list[dict] | None:
-    """Obtiene candidatos para sugerir: ítems con tengo=true, opcionalmente por género.
+def _candidatos_sugerencia(
+    usuario_id: int, genero: str | None
+) -> list[dict] | None:
+    """Obtiene candidatos para sugerir: ítems con tengo=true.
 
     Args:
         usuario_id: Id del usuario.
@@ -85,7 +84,31 @@ def sugerir_juego(usuario_id: int):
         usuario_id: Id del usuario.
 
     Returns:
-        Response: JSON con id, nombre, descripcion, genero, lanzamiento, plataforma y 200;
-        404 si el usuario no existe o no hay juegos que cumplan el criterio.
+        Response: JSON con info del juego y 200; 404 si no hay resultados.
     """
-    return jsonify({"error": "No implementado"}), 501
+    genero = request.args.get("genero")
+    candidatos = _candidatos_sugerencia(usuario_id, genero)
+
+    if candidatos is None:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    if not candidatos:
+        msg = "No hay juegos para sugerir con ese criterio"
+        return jsonify({"error": msg}), 404
+
+    juego_sugerido = random.choice(candidatos)
+    info = CATALOGO_JUEGOS.get(juego_sugerido["juego_id"])
+
+    if info is None:
+        return jsonify({"error": "Juego no encontrado"}), 404
+
+    juego_info = {
+        "id": juego_sugerido["juego_id"],
+        "nombre": info.get("nombre"),
+        "descripcion": info.get("descripcion"),
+        "genero": info.get("genero"),
+        "lanzamiento": info.get("lanzamiento"),
+        "plataforma": info.get("plataforma"),
+    }
+
+    return jsonify(juego_info), 200
